@@ -32,17 +32,15 @@
    0
    (range (count points))))
 
-
 (defn generate-steps
   "Generates a sequence of steps from x-min to x-max with the specified step size."
   [x-min x-max step]
   (let [steps (take-while #(<= % x-max)
-                           (iterate #(+ % step) x-min))
+                          (iterate #(+ % step) x-min))
         last-step (+ (last steps) step)]
     (if (= (last steps) x-max)
       (vec steps)
       (conj (vec steps) last-step))))
-
 
 (defn execute
   "Interpolates a range of points using the specified interpolation function."

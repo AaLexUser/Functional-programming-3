@@ -18,7 +18,6 @@
 
 (def get-max-window-size (fn [alg-names] (reduce max (map #(get-in algorithms [% :win-size]) alg-names))))
 
-
 (def cli-options
   [["-a" "--algorithms ALGORITHMS" "Comma-separated list of interpolation algorithms (linear,lagrange)"
     :multi true

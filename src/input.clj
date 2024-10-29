@@ -39,7 +39,6 @@
    (when (> (count @points) win-size)
      (alter points #(vec (rest %))))))
 
-
 (comment
   (parse-point "1,2")
   (parse-point "1;2;3")
