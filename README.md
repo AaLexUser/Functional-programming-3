@@ -132,11 +132,14 @@ o o o o o o . . x x x
 │   ├── core.clj
 │   ├── input.clj
 │   └── interpolation.clj
+├── test/
+│   └── interpolation_test.clj
 │
 ├── .github/workflows/
 │   └── clojure.yml
 │
 ├── .gitingore 
+├── tests.edn
 └── deps.edn
 ```
 
@@ -147,10 +150,9 @@ o o o o o o . . x x x
 ```clojure
 (def cli-options
   [["-a" "--algorithms ALGORITHMS" "Comma-separated list of interpolation algorithms (linear,lagrange)"
-    :multi true
     :default []
-    :update-fn #(conj %1 (str/lower-case %2))
-    :validate [#(contains? algorithms %) "Unknown algorithm specified"]]
+    :parse-fn #(mapv str/lower-case (map str/trim (str/split % #",")))
+    :validate [#(every? algorithms %) "Unknown algorithm specified"]]
    ["-s" "--step STEP" "Data sampling frequency"
     :parse-fn #(Double/parseDouble %)
     :validate [#(pos? %) "Step must be positive"]
@@ -169,10 +171,10 @@ o o o o o o . . x x x
 (defn -main [& args]
   (let [{:keys [algorithms step]} (parse-args args)]
     (try
-      (let [max-window-size (get-max-window-size algorithms)]
-        (while true
-          (input/read-point max-window-size)
-          (run-interpolation algorithms step)))
+      (let [points-seq (read-input-seq) 
+            accumulated-points (reductions conj [] points-seq)]
+        (doseq [points accumulated-points]
+          (run-interpolation algorithms step points)))
       (catch Exception e
         (exit 1 (str "Error during interpolation: " (.getMessage e)))))))
 ```
@@ -180,43 +182,26 @@ o o o o o o . . x x x
 #### Обработка входного потока.
 
 ```clojure
-(defn- parse-point [input]
+(defn parse-point [input]
   (let [tokens (str/split input #"[,\t ;]+")]
-    (if (= (count tokens) 2)
-      (let [[x y] tokens]
-        (try
-          (->Point (Double/parseDouble x) (Double/parseDouble y))
-          (catch NumberFormatException e
-            (throw (ex-info "Both coordinates must be valid numbers." {:input input} e)))))
-      (throw (ex-info "Input must contain exactly two numerical values separated by comma, tab, space, or semicolon." {:input input})))))
+    (if (str/blank? input) (do (println "Blank input received. Exiting.") (System/exit 0))
+        (if (= (count tokens) 2)
+          (let [[x y] tokens]
+            (try
+              (->Point (Double/parseDouble x) (Double/parseDouble y))
+              (catch NumberFormatException e
+                (throw (ex-info "Both coordinates must be valid numbers." {:input input} e)))))
+          (throw (ex-info "Input must contain exactly two numerical values separated by comma, tab, space, or semicolon." {:input input}))))))
 
-(defn read-input []
-  (loop []
-    (let [line (read-line)]
-      (cond
-        (nil? line) (do (println "No input received. Exiting.") (System/exit 0))
-        (str/blank? (str/trim line)) (do (println "Blank input received. Exiting.") (System/exit 0))
-        :else
-        (let [parsed-point
-              (try
-                (parse-point (str/trim line))
-                (catch Exception e
-                  (println "Error parsing point:" (.getMessage e))
-                  (println "Please enter the point again (e.g., 1,2):")
-                  ::error))]
-          (if (= parsed-point ::error)
-            (recur)
-            parsed-point))))))
 
-(defn read-point [win-size]
-  (println "Enter point:")
-  (dosync
-   (alter points conj (read-input))
-   (when (> (count @points) win-size)
-     (alter points #(vec (rest %))))))
+(defn read-input-seq
+  "Lazily reads input lines from standard input and parses them into Point records."
+  []
+  (->> (line-seq (java.io.BufferedReader. *in*))
+       (map str/trim)
+       (map parse-point)
+       (filter some?)))
 ```
-
-Функция `read-point` принимает на вход размер окна и считывает точку, после чего добавляет её в коллекцию точек. Если размер коллекции превысил размер окна, то старые точки удаляются.
 
 #### Функция генерации точек, для которых будут вычисляться значения.
 
@@ -224,7 +209,8 @@ o o o o o o . . x x x
 (defn generate-steps
   "Generates a sequence of steps from x-min to x-max with the specified step size."
   [x-min x-max step]
-  (let [steps (range x-min x-max step)
+  (let [steps (take-while #(<= % x-max)
+                           (iterate #(+ % step) x-min))
         last-step (+ (last steps) step)]
     (if (= (last steps) x-max)
       (vec steps)

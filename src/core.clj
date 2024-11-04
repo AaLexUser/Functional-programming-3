@@ -1,30 +1,27 @@
 (ns core
   (:require [clojure.tools.cli :refer [parse-opts]]
             [clojure.string :as str]
-            [input]
-            [interpolation :as inter])
-  (:import (java.util Locale)))
+            [input :refer [read-input-seq]]
+            [interpolation :refer [linear-interpolation
+                                   lagrange-interpolation
+                                   execute]]))
 
 (def algorithms
   {"linear"
-   {:func inter/linear-interpolation
+   {:func linear-interpolation
     :win-size 2
     :name "Linear"}
 
    "lagrange"
-   {:func inter/lagrange-interpolation
+   {:func lagrange-interpolation
     :win-size 4
     :name "Lagrange"}})
 
-(def get-max-window-size (fn [alg-names] (reduce max (map #(get-in algorithms [% :win-size]) alg-names))))
-
-
 (def cli-options
   [["-a" "--algorithms ALGORITHMS" "Comma-separated list of interpolation algorithms (linear,lagrange)"
-    :multi true
     :default []
-    :update-fn #(conj %1 (str/lower-case %2))
-    :validate [#(contains? algorithms %) "Unknown algorithm specified"]]
+    :parse-fn #(mapv str/lower-case (map str/trim (str/split % #",")))
+    :validate [#(every? algorithms %) "Unknown algorithm specified"]]
    ["-s" "--step STEP" "Data sampling frequency"
     :parse-fn #(Double/parseDouble %)
     :validate [#(pos? %) "Step must be positive"]
@@ -56,33 +53,30 @@
       (empty? (:algorithms options)) (exit 1 "No algorithms provided")
       :else options)))
 
-(defn- print-values [key result]
-  (println (str/join "\t" (map #(String/format Locale/ENGLISH "%.2f" (into-array Object [(key %)])) result))))
+(defn process-algorithm [alg step points]
+  (when (>= (count points) (:win-size alg))
+    (let [interpolated-points (execute (:func alg) points step (:win-size alg))]
+      (when (not-empty interpolated-points)
+        (let [last-segment (last interpolated-points)
+              xs (map :x last-segment)
+              ys (map :y last-segment)
+              formatted-xs (map #(format "%.2f" %) xs)
+              formatted-ys (map #(format "%.2f" %) ys)]
+          (println (str (:name alg) " interpolation result:"))
+          (println (str/join "\t" formatted-xs))
+          (println (str/join "\t" formatted-ys)))))))
 
-(defn process-algorithm [alg step]
-  (when (>= (count @input/points) (:win-size alg))
-    (let [interpolated-points (inter/execute (:func alg) @input/points step (:win-size alg))]
-      (println (str (:name alg) " interpolation result:"))
-      (print-values :x interpolated-points)
-      (print-values :y interpolated-points))))
-
-(defn run-interpolation [alg-names step]
+(defn run-interpolation [alg-names step points]
   (doseq [alg-name alg-names
           :let [alg (get algorithms alg-name)]]
-    (process-algorithm alg step)))
+    (process-algorithm alg step points)))
 
 (defn -main [& args]
   (let [{:keys [algorithms step]} (parse-args args)]
     (try
-      (let [max-window-size (get-max-window-size algorithms)]
-        (while true
-          (input/read-point max-window-size)
-          (run-interpolation algorithms step)))
+      (let [points-seq (read-input-seq)
+            accumulated-points (reductions conj [] points-seq)]
+        (doseq [points accumulated-points]
+          (run-interpolation algorithms step points)))
       (catch Exception e
         (exit 1 (str "Error during interpolation: " (.getMessage e)))))))
-
-(comment
-  (do
-    (input/read-point 2)
-    (println @input/points)
-    (println (inter/execute inter/linear-interpolation @input/points 1 2))))
