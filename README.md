@@ -260,6 +260,66 @@ o o o o o o . . x x x
    (range (count points))))
 ```
 
+## Вывод программы
+
+```shell
+> clojure -M -m core -a linear,lagrange
+0 0
+1.571 1
+Linear interpolation result:
+0.00    1.00    2.00
+0.00    0.64    1.27
+3.142 0
+Linear interpolation result:
+1.57    2.57    3.57
+1.00    0.36    -0.27
+4.712 -1
+Linear interpolation result:
+3.14    4.14    5.14
+0.00    -0.64   -1.27
+Lagrange interpolation result:
+0.00    1.00    2.00    3.00    4.00    5.00
+0.00    0.97    0.84    0.12    -0.67   -1.03
+12.568  0
+Linear interpolation result:
+4.71    5.71    6.71    7.71    8.71    9.71    10.71   11.71   12.71
+-1.00   -0.87   -0.75   -0.62   -0.49   -0.36   -0.24   -0.11   0.02
+Lagrange interpolation result:
+1.57    2.57    3.57    4.57    5.57    6.57    7.57    8.57    9.57    10.57   11.57  12.57
+1.00    0.37    -0.28   -0.91   -1.49   -1.95   -2.26   -2.38   -2.25   -1.84   -1.11  0.00
+
+Blank input received. Exiting.
+```
+
+```shell
+> clojure -M -m core -a linear,lagrange -s 0.5
+0 0
+1 1
+Linear interpolation result:
+0.00    0.50    1.00
+0.00    0.50    1.00
+2 2
+Linear interpolation result:
+1.00    1.50    2.00
+1.00    1.50    2.00
+3 3
+Linear interpolation result:
+2.00    2.50    3.00
+2.00    2.50    3.00
+Lagrange interpolation result:
+0.00    0.50    1.00    1.50    2.00    2.50    3.00
+0.00    0.50    1.00    1.50    2.00    2.50    3.00
+4 4
+Linear interpolation result:
+3.00    3.50    4.00
+3.00    3.50    4.00
+Lagrange interpolation result:
+1.00    1.50    2.00    2.50    3.00    3.50    4.00
+1.00    1.50    2.00    2.50    3.00    3.50    4.00
+
+Blank input received. Exiting.
+```
+
 ## Заключение
 
 В ходе выполнения лабораторной работы были достигнуты следующие результаты:
